@@ -1,4 +1,310 @@
-<!DOCTYPE html><html lang="zh-cn"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=Edge"><meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no"><meta name="format-detection" content="telephone=no"><meta name="format-detection" content="email=no"><meta name="description"><meta name="keywords" content="Hexo, Gruntjs, Nodejs, Reactjs, Vuejs"><title>iOS-揭露Block的内部实现原理 - Developer Lee</title><link rel="stylesheet" href="/css/main_style.min.css"><link rel="icon" href="/favicon.ico"></head><body><input id="navi" type="checkbox"><ul class="main-navication"><li><a href="/"><span>Home</span></a></li><li><a href="https://github.com"><span>Github</span></a></li><li><a href="https://www.v2ex.com/"><span>V2EX</span></a></li></ul><div class="wrapper" id="wrap"><div class="post-header"><label class="navi-button light" for="navi">MENU</label><img class="background" src="http://callfiles.ueibo.com/hexo-theme-laughing/post_background.jpg"><div class="post-title"><h1 class="title">iOS-揭露Block的内部实现原理</h1><ul class="meta"><li><i class="icon icon-author"></i>lee</li><li><i class="icon icon-clock"></i>20 Minutes</li><li><i class="icon icon-calendar"></i>December 25, 2017</li></ul></div></div><div class="article-content" style="max-width:800px"><h1 id="iOS-揭露Block的内部实现原理"><a href="#iOS-揭露Block的内部实现原理" class="headerlink" title="iOS-揭露Block的内部实现原理"></a>iOS-揭露Block的内部实现原理</h1><h2 id="抛砖引玉"><a href="#抛砖引玉" class="headerlink" title="抛砖引玉"></a>抛砖引玉</h2><p>先给出问题，大家思考下结果吧，如果分别调用以下两个方法，结果如何？<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> blockFunc1()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> num = <span class="number">100</span>;</span><br><span class="line">    <span class="keyword">void</span>(^block)() = ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"num equal %d"</span>,num);</span><br><span class="line">    &#125;;</span><br><span class="line">    num = <span class="number">200</span>;</span><br><span class="line">    block();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next mist use-motion" lang="">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.3" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.3">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.3" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+
+
+<meta name="description" content="iOS-揭露Block的内部实现原理抛砖引玉先给出问题，大家思考下结果吧，如果分别调用以下两个方法，结果如何？123456789void blockFunc1()&amp;#123;    int num = 100;    void(^block)() = ^&amp;#123;        NSLog(@&quot;num equal %d&quot;,num);    &amp;#125;;    num = 200;    blo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="iOS-揭露Block的内部实现原理">
+<meta property="og:url" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/index.html">
+<meta property="og:site_name" content="Developer Lee">
+<meta property="og:description" content="iOS-揭露Block的内部实现原理抛砖引玉先给出问题，大家思考下结果吧，如果分别调用以下两个方法，结果如何？123456789void blockFunc1()&amp;#123;    int num = 100;    void(^block)() = ^&amp;#123;        NSLog(@&quot;num equal %d&quot;,num);    &amp;#125;;    num = 200;    blo">
+<meta property="og:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic2.png">
+<meta property="og:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic1.png">
+<meta property="og:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic3.png">
+<meta property="og:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic4.png">
+<meta property="og:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic5.png">
+<meta property="og:updated_time" content="2017-12-24T16:30:57.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="iOS-揭露Block的内部实现原理">
+<meta name="twitter:description" content="iOS-揭露Block的内部实现原理抛砖引玉先给出问题，大家思考下结果吧，如果分别调用以下两个方法，结果如何？123456789void blockFunc1()&amp;#123;    int num = 100;    void(^block)() = ^&amp;#123;        NSLog(@&quot;num equal %d&quot;,num);    &amp;#125;;    num = 200;    blo">
+<meta name="twitter:image" content="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/pic2.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Mist',
+    version: '5.1.3',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/"/>
+
+
+
+
+
+  <title>iOS-揭露Block的内部实现原理 | Developer Lee</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Developer Lee</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Startseite
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archiv
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/12/25/iOS-揭露Block的内部实现原理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="lee">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Developer Lee">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">iOS-揭露Block的内部实现原理</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-12-25T00:01:36+08:00">
+                2017-12-25
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="iOS-揭露Block的内部实现原理"><a href="#iOS-揭露Block的内部实现原理" class="headerlink" title="iOS-揭露Block的内部实现原理"></a>iOS-揭露Block的内部实现原理</h1><h2 id="抛砖引玉"><a href="#抛砖引玉" class="headerlink" title="抛砖引玉"></a>抛砖引玉</h2><p>先给出问题，大家思考下结果吧，如果分别调用以下两个方法，结果如何？<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> blockFunc1()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> num = <span class="number">100</span>;</span><br><span class="line">    <span class="keyword">void</span>(^block)() = ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"num equal %d"</span>,num);</span><br><span class="line">    &#125;;</span><br><span class="line">    num = <span class="number">200</span>;</span><br><span class="line">    block();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
 <figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span> blockFunc2()</span><br><span class="line">&#123;</span><br><span class="line">    __block <span class="keyword">int</span> num = <span class="number">100</span>;</span><br><span class="line">    <span class="keyword">void</span> (^block)(<span class="keyword">void</span>) = ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"num equal %d"</span>,num);</span><br><span class="line">    &#125;;</span><br><span class="line">    num = <span class="number">200</span>;</span><br><span class="line">    block();</span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>答案是<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">blockFunc1 : num equal <span class="number">100</span></span><br><span class="line">blockFunc2 : num equal <span class="number">200</span></span><br></pre></td></tr></table></figure></p>
 <figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int</span> num = <span class="number">100</span>; <span class="comment">//全局变量</span></span><br><span class="line"><span class="keyword">void</span> blockFunc3()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">void</span>(^block)(<span class="keyword">void</span>) = ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"num equal %d"</span>,num);</span><br><span class="line">    &#125;;</span><br><span class="line">    num = <span class="number">200</span>;</span><br><span class="line">    block();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -27,7 +333,358 @@
 <p>当创建num并用__block修饰的时候，会初始化这五个变量<br>当我们执行<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">__block <span class="keyword">int</span> num = <span class="number">100</span>;</span><br></pre></td></tr></table></figure></p>
 <p>对应着<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(num.__forwarding-&gt;num) = <span class="number">200</span>;</span><br></pre></td></tr></table></figure></p>
 <p>上面的<strong>forwarding是实例本身，即类型结构体</strong>Block_byref_num_0的&amp;num，再找到对应的num变量，将其原来的100修改为200~~  </p>
-</div><div class="article-meta" style="max-width:800px"></div><ul class="navication"><li class="home"><a href="/"><i class="icon icon-home"></i></a></li><li><a href="/2017/12/24/Objective-C-block的实现/"><i class="icon icon-arror-right"></i></a></li></ul><div class="page-footer"><div class="top"><ul class="social"><li><a href="https://github.com/SmartLeeQ" title="Github" target="_blank"><i class="icon icon-github"></i></a></li><li><a href="https://weibo.com/heqibang" title="Weibo" target="_blank"><i class="icon icon-weibo"></i></a></li><li><a href="https://www.segmentfault.com/u/bon" title="SegmentFault" target="_blank"><i class="icon icon-segmentfault"></i></a></li></ul></div><div class="bottom"><p class="copyright">© 2017 Developer Lee<br><small>POWER BY <a href="https://hexo.io" target="_blank">HEXO</a></small><small>, THEME BY <a href="https://github.com/BoizZ/hexo-theme-laughing" target="_blank">LAUGHING</a></small></p></div></div></div><script>var wrap = document.getElementById('wrap');
-window.onload = function () {
-  wrap.className += ' done';
-}</script></body></html>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/12/24/Objective-C-block的实现/" rel="next" title="Objective-C block的实现">
+                <i class="fa fa-chevron-left"></i> Objective-C block的实现
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">lee</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">2</span>
+                  <span class="site-state-item-name">Artikel</span>
+                </a>
+              </div>
+            
+
+            
+
+            
+
+          </nav>
+
+          
+
+          <div class="links-of-author motion-element">
+            
+          </div>
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#iOS-揭露Block的内部实现原理"><span class="nav-number">1.</span> <span class="nav-text">iOS-揭露Block的内部实现原理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#抛砖引玉"><span class="nav-number">1.1.</span> <span class="nav-text">抛砖引玉</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#探索内部原理"><span class="nav-number">1.2.</span> <span class="nav-text">探索内部原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#block的实现"><span class="nav-number">1.3.</span> <span class="nav-text">__block的实现</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">lee</span>
+
+  
+</div>
+
+
+  <div class="powered-by">Erstellt mit  <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a></div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Mist</a> v5.1.3</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.3"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.3"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.3"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
