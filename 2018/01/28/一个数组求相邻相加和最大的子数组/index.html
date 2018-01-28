@@ -4,25 +4,26 @@
 <head>
   <meta charset="UTF-8">
   
-    <title>Objective-C block的实现 | Developer Lee</title>
+    <title>一个数组求相邻相加和最大的子数组[算法] | Developer Lee</title>
     <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
     
     <meta name="author" content="lee">
     
 
     
-    <meta name="description" content="前言 先介绍一下什么是闭包。闭包是一个函数(或指向函数的指针)，再加上该函数执行的外部的上下文变量(有时候也称自由变量)。 block实际上就是Objective-C 语言对于闭包的实现。 block配合上dispatch_queue,可以方便的实现简单的多线程编程和异步编程。    本文主要介绍Objective-C 语言的Block在编译器中的实现方式。主要包括:  block的内部实现数据结">
+    <meta name="description" content="方法一如图 方法二如图">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Objective-C block的实现">
-<meta property="og:url" content="http://yoursite.com/2017/12/24/Objective-C-block的实现/index.html">
+<meta property="og:title" content="一个数组求相邻相加和最大的子数组[算法]">
+<meta property="og:url" content="http://yoursite.com/2018/01/28/一个数组求相邻相加和最大的子数组/index.html">
 <meta property="og:site_name" content="Developer Lee">
-<meta property="og:description" content="前言 先介绍一下什么是闭包。闭包是一个函数(或指向函数的指针)，再加上该函数执行的外部的上下文变量(有时候也称自由变量)。 block实际上就是Objective-C 语言对于闭包的实现。 block配合上dispatch_queue,可以方便的实现简单的多线程编程和异步编程。    本文主要介绍Objective-C 语言的Block在编译器中的实现方式。主要包括:  block的内部实现数据结">
-<meta property="og:image" content="http://yoursite.com/2017/12/24/Objective-C-block的实现/block-struct.jpg">
-<meta property="og:updated_time" content="2017-12-24T13:29:49.000Z">
+<meta property="og:description" content="方法一如图 方法二如图">
+<meta property="og:image" content="http://yoursite.com/2018/01/28/一个数组求相邻相加和最大的子数组/方法一.png">
+<meta property="og:image" content="http://yoursite.com/2018/01/28/一个数组求相邻相加和最大的子数组/方法二.png">
+<meta property="og:updated_time" content="2018-01-28T11:56:33.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Objective-C block的实现">
-<meta name="twitter:description" content="前言 先介绍一下什么是闭包。闭包是一个函数(或指向函数的指针)，再加上该函数执行的外部的上下文变量(有时候也称自由变量)。 block实际上就是Objective-C 语言对于闭包的实现。 block配合上dispatch_queue,可以方便的实现简单的多线程编程和异步编程。    本文主要介绍Objective-C 语言的Block在编译器中的实现方式。主要包括:  block的内部实现数据结">
-<meta name="twitter:image" content="http://yoursite.com/2017/12/24/Objective-C-block的实现/block-struct.jpg">
+<meta name="twitter:title" content="一个数组求相邻相加和最大的子数组[算法]">
+<meta name="twitter:description" content="方法一如图 方法二如图">
+<meta name="twitter:image" content="http://yoursite.com/2018/01/28/一个数组求相邻相加和最大的子数组/方法一.png">
 
     
     <link rel="alternative" href="/atom.xml" title="Developer Lee" type="application/atom+xml">
@@ -80,14 +81,14 @@
 		<header class="article-info clearfix">
   <h1 itemprop="name">
     
-      <a href="/2017/12/24/Objective-C-block的实现/" title="Objective-C block的实现" itemprop="url">Objective-C block的实现</a>
+      <a href="/2018/01/28/一个数组求相邻相加和最大的子数组/" title="一个数组求相邻相加和最大的子数组[算法]" itemprop="url">一个数组求相邻相加和最大的子数组[算法]</a>
   </h1>
   <p class="article-author">By
        
 		<a href="/about" title="lee" target="_blank" itemprop="author">lee</a>
 		
   <p class="article-time">
-    <time datetime="2017-12-24T12:23:45.000Z" itemprop="datePublished"> 发表于 2017-12-24</time>
+    <time datetime="2018-01-28T11:53:18.000Z" itemprop="datePublished"> 发表于 2018-01-28</time>
     
   </p>
 </header>
@@ -96,19 +97,12 @@
 		<div id="toc" class="toc-article">
 			<strong class="toc-title">文章目录</strong>
 		
-			<ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#前言"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实现方式"><span class="toc-number">2.</span> <span class="toc-text">实现方式</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#数据结构定义"><span class="toc-number">2.1.</span> <span class="toc-text">数据结构定义</span></a></li></ol></li></ol>
+			<ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#方法一如图"><span class="toc-number">1.</span> <span class="toc-text">方法一如图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#方法二如图"><span class="toc-number">2.</span> <span class="toc-text">方法二如图</span></a></li></ol>
 		
 		</div>
 		
-		<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p> 先介绍一下什么是闭包。闭包是一个函数(或指向函数的指针)，再加上该函数执行的外部的上下文变量(有时候也称自由变量)。<br> block实际上就是Objective-C 语言对于闭包的实现。<br> block配合上dispatch_queue,可以方便的实现简单的多线程编程和异步编程。  </p>
-<p> 本文主要介绍Objective-C 语言的Block在编译器中的实现方式。主要包括:</p>
-<ol>
-<li>block的内部实现数据结构介绍</li>
-<li>block的三种类型及其相关的内存管理方式</li>
-<li>block如何通过capture变量来达到访问函数外的变量</li>
-</ol>
-<h1 id="实现方式"><a href="#实现方式" class="headerlink" title="实现方式"></a>实现方式</h1><h2 id="数据结构定义"><a href="#数据结构定义" class="headerlink" title="数据结构定义"></a>数据结构定义</h2><p> block的数据结构定义如下：<br> <img src="/2017/12/24/Objective-C-block的实现/block-struct.jpg" alt="Objective-C-block的实现"></p>
-<p>对应的结构体定义如下:<br><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> Block_descriptor &#123;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">int</span> reserved;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="keyword">int</span> size;</span><br><span class="line">    <span class="keyword">void</span> (*<span class="keyword">copy</span>)(<span class="keyword">void</span> *dst, <span class="keyword">void</span> *src);</span><br><span class="line">    <span class="keyword">void</span> (*dispose)(<span class="keyword">void</span> *);</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">struct</span> Block_layout &#123;</span><br><span class="line">    <span class="keyword">void</span> *isa;</span><br><span class="line">    <span class="keyword">int</span> flags;</span><br><span class="line">    <span class="keyword">int</span> reserved;</span><br><span class="line">    <span class="keyword">void</span> (*invoke)(<span class="keyword">void</span> *, ...);</span><br><span class="line">    <span class="keyword">struct</span> Block_descriptor *descriptor;</span><br><span class="line">    <span class="comment">/* Imported variables. */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+		<h3 id="方法一如图"><a href="#方法一如图" class="headerlink" title="方法一如图"></a>方法一如图</h3><p><img src="/2018/01/28/一个数组求相邻相加和最大的子数组/方法一.png" alt=""></p>
+<h3 id="方法二如图"><a href="#方法二如图" class="headerlink" title="方法二如图"></a>方法二如图</h3><p><img src="/2018/01/28/一个数组求相邻相加和最大的子数组/方法二.png" alt=""></p>
   
 	</div>
 		<footer class="article-footer clearfix">
@@ -121,7 +115,7 @@
 
 	<div class="article-share" id="share">
 	
-	  <div data-url="http://yoursite.com/2017/12/24/Objective-C-block的实现/" data-title="Objective-C block的实现 | Developer Lee" data-tsina="" class="share clearfix">
+	  <div data-url="http://yoursite.com/2018/01/28/一个数组求相邻相加和最大的子数组/" data-title="一个数组求相邻相加和最大的子数组[算法] | Developer Lee" data-tsina="" class="share clearfix">
 	  </div>
 	
 	</div>
@@ -134,14 +128,14 @@
 	
 <nav class="article-nav clearfix">
  
- <div class="prev" >
- <a href="/2017/12/25/iOS-揭露Block的内部实现原理/" title="iOS-揭露Block的内部实现原理">
-  <strong>上一篇：</strong><br/>
-  <span>
-  iOS-揭露Block的内部实现原理</span>
+
+<div class="next">
+<a href="/2018/01/27/iOS对象模型/"  title="iOS对象模型">
+ <strong>下一篇：</strong><br/> 
+ <span>iOS对象模型
+</span>
 </a>
 </div>
-
 
 </nav>
 
@@ -155,7 +149,7 @@
   <div id="toc" class="toc-aside">
   <strong class="toc-title">文章目录</strong>
  
- <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#前言"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实现方式"><span class="toc-number">2.</span> <span class="toc-text">实现方式</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#数据结构定义"><span class="toc-number">2.1.</span> <span class="toc-text">数据结构定义</span></a></li></ol></li></ol>
+ <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#方法一如图"><span class="toc-number">1.</span> <span class="toc-text">方法一如图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#方法二如图"><span class="toc-number">2.</span> <span class="toc-text">方法二如图</span></a></li></ol>
  
   </div>
 
